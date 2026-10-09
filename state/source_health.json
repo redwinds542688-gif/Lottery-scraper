@@ -1,0 +1,170 @@
+{
+  "539": {
+    "台彩官方API": {
+      "first_fail_date": null,
+      "disabled": false,
+      "last_success_date": "2026-10-07"
+    },
+    "i539.tw": {
+      "first_fail_date": "2026-10-07",
+      "disabled": false,
+      "last_success_date": "2026-10-06"
+    },
+    "奧索樂透網": {
+      "first_fail_date": null,
+      "disabled": false,
+      "last_success_date": "2026-10-07"
+    },
+    "pilio.idv.tw": {
+      "first_fail_date": "2026-08-25",
+      "disabled": true,
+      "last_success_date": null
+    },
+    "lotto-8.com": {
+      "first_fail_date": "2026-08-25",
+      "disabled": true,
+      "last_success_date": null
+    },
+    "arclink.com.tw": {
+      "first_fail_date": "2026-08-25",
+      "disabled": true,
+      "last_success_date": null
+    },
+    "twlottery.in": {
+      "first_fail_date": "2026-08-25",
+      "disabled": true,
+      "last_success_date": null
+    },
+    "Google新聞搜尋": {
+      "first_fail_date": "2026-08-25",
+      "disabled": true,
+      "last_success_date": null
+    }
+  },
+  "lotto649": {
+    "台彩官方API": {
+      "first_fail_date": null,
+      "disabled": false,
+      "last_success_date": "2026-10-07"
+    },
+    "i539.tw": {
+      "first_fail_date": "2026-08-25",
+      "disabled": true,
+      "last_success_date": null
+    },
+    "奧索樂透網": {
+      "first_fail_date": "2026-08-25",
+      "disabled": true,
+      "last_success_date": null
+    },
+    "pilio.idv.tw": {
+      "first_fail_date": "2026-08-25",
+      "disabled": true,
+      "last_success_date": null
+    },
+    "lotto-8.com": {
+      "first_fail_date": "2026-08-25",
+      "disabled": true,
+      "last_success_date": null
+    },
+    "arclink.com.tw": {
+      "first_fail_date": "2026-08-25",
+      "disabled": true,
+      "last_success_date": null
+    },
+    "9800.com.tw": {
+      "first_fail_date": null,
+      "disabled": false,
+      "last_success_date": "2026-10-07"
+    },
+    "Google新聞搜尋": {
+      "first_fail_date": "2026-10-07",
+      "disabled": false,
+      "last_success_date": "2026-10-07"
+    }
+  },
+  "fantasy5": {
+    "加州彩券官網": {
+      "first_fail_date": null,
+      "disabled": false,
+      "last_success_date": "2026-10-06"
+    },
+    "lotteryusa.com": {
+      "first_fail_date": "2026-10-02",
+      "disabled": false,
+      "last_success_date": "2026-10-01"
+    },
+    "lottery.net": {
+      "first_fail_date": "2026-08-25",
+      "disabled": true,
+      "last_success_date": null
+    },
+    "lotto-8.com": {
+      "first_fail_date": null,
+      "disabled": false,
+      "last_success_date": "2026-10-06"
+    },
+    "twlottery.in": {
+      "first_fail_date": "2026-08-25",
+      "disabled": true,
+      "last_success_date": null
+    },
+    "pilio.idv.tw": {
+      "first_fail_date": "2026-08-25",
+      "disabled": true,
+      "last_success_date": null
+    },
+    "lotteryextreme.com": {
+      "first_fail_date": null,
+      "disabled": false,
+      "last_success_date": "2026-10-06"
+    },
+    "Google新聞搜尋": {
+      "first_fail_date": "2026-08-25",
+      "disabled": true,
+      "last_success_date": null
+    }
+  },
+  "marksix": {
+    "HKJC官方": {
+      "first_fail_date": "2026-08-26",
+      "disabled": true,
+      "last_success_date": null
+    },
+    "lottery.hk": {
+      "first_fail_date": null,
+      "disabled": false,
+      "last_success_date": "2026-10-07"
+    },
+    "marksixlotterynumbers.hk": {
+      "first_fail_date": "2026-08-26",
+      "disabled": true,
+      "last_success_date": null
+    },
+    "pilio.idv.tw": {
+      "first_fail_date": "2026-08-26",
+      "disabled": true,
+      "last_success_date": null
+    },
+    "lotto-8.com": {
+      "first_fail_date": "2026-08-26",
+      "disabled": true,
+      "last_success_date": null
+    },
+    "twlottery.in": {
+      "first_fail_date": "2026-08-26",
+      "disabled": true,
+      "last_success_date": null
+    },
+    "9800.com.tw": {
+      "first_fail_date": null,
+      "disabled": false,
+      "last_success_date": "2026-10-07"
+    },
+    "Google新聞搜尋": {
+      "first_fail_date": "2026-08-26",
+      "disabled": true,
+      "last_success_date": null
+    }
+  }
+}

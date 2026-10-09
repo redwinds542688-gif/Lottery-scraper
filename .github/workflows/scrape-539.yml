@@ -1,0 +1,50 @@
+name: 爬蟲 - 今彩539
+
+on:
+  schedule:
+    # 一天觸發一次即可：程式內部會自己重試最長 330 分鐘，不再需要每小時
+    # 觸發、也不再需要停用/重新啟用機制。台灣時間 21:00 觸發，UTC 13:00。
+    - cron: "0 13 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: lottery-scraper-539
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run scraper
+        id: run
+        env:
+          GITHUB_REPO: redwinds542688-gif/Lottery-database
+          GITHUB_TOKEN: ${{ secrets.DATA_TOKEN }}
+          GITHUB_BRANCH: main
+          STATE_DIR: state
+        run: python lottery_scraper.py --game 539
+
+      - name: 提交狀態檔案（lottery.db / status.json / source_health.json）
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add state/
+          git diff --cached --quiet || git commit -m "更新爬蟲狀態 (539) [skip ci]"
+          git pull --rebase origin main
+          git push

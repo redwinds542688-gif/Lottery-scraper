@@ -1,0 +1,60 @@
+{
+  "539": {
+    "fetching": false,
+    "updated_at": "2026-10-07 03:52:09",
+    "date": "2026-10-06",
+    "weekday": "二",
+    "numbers": [
+      14,
+      25,
+      26,
+      29,
+      33
+    ],
+    "special": null
+  },
+  "lotto649": {
+    "fetching": false,
+    "updated_at": "2026-10-07 03:19:38",
+    "date": "2026-10-06",
+    "weekday": "二",
+    "numbers": [
+      4,
+      6,
+      20,
+      32,
+      36,
+      39
+    ],
+    "special": 23
+  },
+  "fantasy5": {
+    "fetching": false,
+    "updated_at": "2026-10-06 18:47:33",
+    "date": "2026-10-06",
+    "weekday": "二",
+    "numbers": [
+      3,
+      16,
+      18,
+      27,
+      28
+    ],
+    "special": null
+  },
+  "marksix": {
+    "fetching": false,
+    "updated_at": "2026-10-07 04:16:02",
+    "date": "2026-10-06",
+    "weekday": "二",
+    "numbers": [
+      9,
+      29,
+      31,
+      34,
+      36,
+      41
+    ],
+    "special": 28
+  }
+}
