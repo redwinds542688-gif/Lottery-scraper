@@ -1,27 +1,113 @@
 # -*- coding: utf-8 -*-
 """
 每日開獎號碼爬蟲（多來源交叉比對版）
+====================================================================
 
-規則：
-  - 每種彩券設定 3 個查詢來源
-  - 從指定時間開始，每隔固定分鐘數重新抓取一次
-  - 只要有 >= 2 個來源號碼完全一致，視為「確認無誤」，寫入 SQLite 資料庫
-  - 若超過重試上限仍無法達成一致，記錄警告並停止（不寫入資料庫）
+一、整體架構（2026-10-09 起：爬蟲公開、資料私人）
+--------------------------------------------------------------------
+  ┌───────────────────────────────┐        ┌───────────────────────────────┐
+  │ Lottery-scraper（公開 repo）   │  寫入  │ Lottery-database（私人 repo）  │
+  │  lottery_scraper.py（本程式）  │ ─────▶ │  data.json  ← 所有程式讀這裡   │
+  │  .github/workflows/*.yml      │ DATA_  │                               │
+  │  state/（爬蟲自己的狀態檔）     │ TOKEN  │  （不再放任何 Actions 排程）   │
+  └───────────────────────────────┘        └───────────────────────────────┘
+                                                        │
+              好運旺旺進財來 App / 桌面開獎列 ◀──────────┘（透過 Cloudflare 閘道讀取）
 
-用法：
-    python lottery_scraper.py --game 539
-    python lottery_scraper.py --game marksix
-    python lottery_scraper.py --game fantasy5
-    python lottery_scraper.py --game lotto649
+  為什麼拆成兩個 repo：
+    - 私人 repo 的 GitHub Actions 每月只有 2,000 分鐘免費額度，
+      2026-10 月初用超過（約 2,700 分鐘）後被 GitHub 擋下，10/7 起爬蟲全停。
+    - 公開 repo 的 Actions 免費、不限分鐘數，所以爬蟲搬到公開 repo 跑；
+      開獎資料（data.json）仍留在私人 repo，不公開。
+    - 爬蟲程式本身沒有任何密碼或金鑰，公開不影響安全。
 
-建議透過 cron / 工作排程器在對應時間各自啟動一次：
-    加州天天樂 每天 11:10 啟動
-    今彩539   每天 20:50 啟動
-    香港六合彩 每天 21:50 啟動
-    大樂透    每天 21:10 啟動
+  金鑰（DATA_TOKEN）：
+    - 存放位置：Lottery-scraper → Settings → Secrets and variables → Actions
+      → Repository secrets → DATA_TOKEN
+    - 種類：Fine-grained personal access token，名稱 lottery-data-write
+    - 權限：只限 Lottery-database 一個 repo，Contents = Read and write
+    - 有效期：不過期。若懷疑外流 → 到 GitHub Settings → Developer settings
+      → Personal access tokens → Fine-grained tokens 刪除後重建，
+      再到上面的 Secrets 把 DATA_TOKEN 更新成新金鑰即可，程式不用改。
+    - 金鑰絕對不要寫進程式或貼到對話／截圖。
 
-註：大樂透開獎號碼含 6 個正選號碼 + 1 個特別號，本程式交叉比對時
-    只比對 6 個正選號碼（特別號解析較不穩定，暫不納入比對條件）。
+  workflow 裡傳給本程式的環境變數：
+    GITHUB_REPO   = redwinds542688-gif/Lottery-database   （寫入目標：私人 repo）
+    GITHUB_TOKEN  = ${{ secrets.DATA_TOKEN }}             （寫入私人 repo 用的金鑰）
+    GITHUB_BRANCH = main
+    STATE_DIR     = state                                 （狀態檔存在公開 repo）
+  每次執行完，workflow 會用公開 repo 自己的 GITHUB_TOKEN 把 state/ commit 回
+  Lottery-scraper（同時也讓 repo 保持活躍，避免 60 天無活動排程被自動停用）。
+
+二、排程（.github/workflows/，cron 為 UTC，台灣 = UTC+8）
+--------------------------------------------------------------------
+  彩券         主要觸發 (檔名 / 台灣時間)            備援觸發 (檔名 / 台灣時間)
+  今彩539      scrape-539.yml       21:00           scrape-539-backup.yml       21:30
+  大樂透       scrape-lotto649.yml  21:05           scrape-lotto649-backup.yml  22:00
+  香港六合彩   scrape-marksix.yml   22:00           scrape-marksix-backup.yml   22:15
+  加州天天樂   scrape-fantasy5.yml  11:05（隔天）    scrape-fantasy5-backup.yml  11:45
+
+  - 每個彩券一天只觸發一次，觸發後由本程式內部自己迴圈重試
+    （見 LOOP_MAX_MINUTES / LOOP_RETRY_INTERVAL_SECONDS 等設定）。
+  - 「備援觸發」是另一個獨立的 workflow 檔，用來繞過 GitHub 排程偶爾整個
+    跳過不觸發的問題；跟主要觸發共用 concurrency group，若主要觸發當天已確認，
+    備援一進來看到「今天已確認」就幾秒內結束。
+  - 每個 workflow 也都可以在 Actions 頁面手動按 Run workflow 立即執行。
+    注意：同一彩券不要連按兩次，兩次同時跑會搶著 commit state/，後到的那次
+    「提交狀態檔案」步驟會失敗（資料本身不受影響）。
+  - 已不再使用的舊設計：每小時觸發、確認後 gh workflow disable、
+    re-enable-*.yml 隔天重新啟用——全部已移除，不要重建。
+
+三、確認開獎號碼的規則（try_cross_check）
+--------------------------------------------------------------------
+  每個彩券有 8 個來源（見 SOURCES_539 / SOURCES_LOTTO649 / SOURCES_MARKSIX /
+  SOURCES_FANTASY5），一輪把所有來源各抓一次，然後：
+    1. 主要路徑：任一來源的日期（套用 source_date_offset_days 時差校正後）
+       等於台灣今天，且號碼跟資料庫最新一筆不同 → 單一來源即可確認。
+       例外：LOW_TRUST_SOURCES（目前是「Google新聞搜尋」）不能單獨確認，
+       一定要有其他來源號碼一致才算數。
+    2. 備援路徑：至少 REQUIRED_AGREEING_SOURCES（2）個來源號碼完全一致，
+       且有日期資訊時至少一個一致來源的日期等於今天，才算確認。
+    3. 有特別號的彩券（大樂透、六合彩）會用 validate_special() 檢查：
+       特別號必須在 1~49 且不能跟正式號碼重複，不合格的結果直接丟棄。
+       （起因：2026-10-06 大樂透被新聞來源寫入錯誤號碼。）
+    4. draw_date 一律存台灣認定的 ISO 日期（YYYY-MM-DD）。
+  確認後：寫入 state/lottery.db（SQLite），再呼叫 upload_to_cloud() 用
+  GitHub Contents API 寫進私人 repo 的 data.json（同彩券同號碼不重複寫入；
+  同一天已有紀錄也不會再補寫；409 衝突會自動重試）。
+  來源連續失敗超過 SOURCE_DISABLE_DAYS（30）天會自動停用，紀錄在
+  state/source_health.json。
+
+四、data.json 格式（私人 repo 根目錄）
+--------------------------------------------------------------------
+  { "今彩539": [ {最新一筆}, {前一筆}, ... ], "大樂透": [...],
+    "香港六合彩": [...], "加州天天樂": [...] }
+  每筆：period（期別，可能為空）、draw_date（YYYY-MM-DD）、
+        numbers（空白分隔、去前導 0）、special_number（539/天天樂為空字串）、
+        agreeing_sources（確認來源）、checked_at（台灣時間）。
+  爬蟲故障時可以人工補登：直接在 data.json 對應彩券陣列最前面加一筆，
+  agreeing_sources 寫「使用者人工補登」。
+
+五、用法
+--------------------------------------------------------------------
+    python lottery_scraper.py --game 539        # 今彩539
+    python lottery_scraper.py --game lotto649   # 大樂透
+    python lottery_scraper.py --game marksix    # 香港六合彩
+    python lottery_scraper.py --game fantasy5   # 加州天天樂
+    python lottery_scraper.py --game 539 --check-confirmed-only
+        # 只檢查今天是否已確認（回傳碼供 workflow 判斷），不抓資料
+  本機手動執行時不設定 GITHUB_REPO / GITHUB_TOKEN，就只存本機資料庫、不上傳。
+
+六、故障排除
+--------------------------------------------------------------------
+  - 某彩券沒更新：到 Lottery-scraper → Actions 看該彩券當天的執行紀錄，
+    紅叉點進去看是哪一步失敗。
+  - 「Run scraper」失敗且訊息含 401/403/404：DATA_TOKEN 失效、過期或權限
+    不足（要 Contents: Read and write 且有勾 Lottery-database）。
+  - 「提交狀態檔案」失敗：通常是同時跑兩次搶 commit，資料不受影響。
+  - 號碼錯誤：先人工修正 data.json，再檢查是哪個來源出錯（log 會列出
+    每個來源抓到的號碼），必要時加入 LOW_TRUST_SOURCES 或停用該來源。
+  - 大樂透只比對 6 個正選號碼，特別號另由 validate_special() 檢查。
 """
 
 import argparse
