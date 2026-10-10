@@ -74,7 +74,7 @@
     4. draw_date 一律存台灣認定的 ISO 日期（YYYY-MM-DD）。
   確認後：寫入 state/lottery.db（SQLite），再呼叫 upload_to_cloud() 用
   GitHub Contents API 寫進私人 repo 的 data.json（同彩券同號碼不重複寫入；
-  同一天已有紀錄也不會再補寫；409 衝突會自動重試）。
+  同彩券同一天已有紀錄就不再寫入——雲端與電腦爬蟲都寫同一份 data.json，誰先寫誰為準，不會重複；409 衝突會自動重試）。
   來源連續失敗超過 SOURCE_DISABLE_DAYS（30）天會自動停用，紀錄在
   state/source_health.json。
 
@@ -307,9 +307,10 @@ def upload_to_cloud(game, period, draw_date, numbers, special, sources):
             # 當成補抓目標，Google新聞搜尋 抓到錯誤號碼，又寫了第二筆 10/06。
             # 補抓的那一天如果已經有紀錄，就以先確認的那筆為準（當天確認的
             # 不受影響，今彩539 若有加開場次仍可正常寫入）。
+            # 2026-10-10 使用者：雲端與電腦爬蟲都會寫入，同一彩券同一天一律只留先寫進去的那一筆
+            # （不論是不是補抓；號碼相同已在上面略過，號碼不同就以先確認的為準，記錄在 log 等人工確認）
             same_day = [r for r in game_records if r.get("draw_date") == record["draw_date"]]
-            is_backfill = record["draw_date"] != taiwan_today().strftime("%Y-%m-%d")
-            if same_day and is_backfill:  # 只擋「補抓昨天」；當天的加開場次照常寫入
+            if same_day:
                 log(f"GitHub 上 {game} {record['draw_date']} 已經有紀錄（{same_day[0].get('numbers')}），"
                     f"這次抓到的 {record['numbers']} 不寫入，請人工確認哪一筆正確")
                 return
