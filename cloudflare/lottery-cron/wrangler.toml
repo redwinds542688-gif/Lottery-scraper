@@ -1,0 +1,9 @@
+name = "lottery-cron"
+main = "worker.js"
+compatibility_date = "2024-09-01"
+
+# 跟 Cloudflare 上的設定一致：1 條 Cron（UTC），程式依實際時間決定要叫哪個爬蟲
+# wrangler deploy 會用這裡的 crons 覆蓋 Cloudflare 上的 Cron 設定；
+# Worker 原本的 GH_TOKEN 密鑰（Secret）不會被覆蓋。
+[triggers]
+crons = ["0,40,45 2,3,12,13 * * *"]

@@ -1,0 +1,22 @@
+# 自動部署 Cloudflare Worker：lottery-cron
+# cloudflare/lottery-cron/ 底下有變動推上 main 就自動部署，也可以手動執行。
+# 需要的密鑰：CLOUDFLARE_API_TOKEN（Cloudflare API Token，範本選「Edit Cloudflare Workers」）
+name: 部署 lottery-cron（Cloudflare Worker）
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "cloudflare/lottery-cron/**"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          command: deploy
+          workingDirectory: cloudflare/lottery-cron
