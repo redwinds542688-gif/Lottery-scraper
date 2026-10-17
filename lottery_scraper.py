@@ -180,6 +180,29 @@ def taiwan_today():
     return datetime.datetime.now(TAIWAN_TZ).date()
 
 
+# 2026-10-17 使用者：「成功抓取就不用再抓，等隔天的重新開始訊號」
+# 每種彩券「今天這一期最早可能開出」的台灣時間。還沒到這個時間就執行
+# （例如 GitHub 自己的排程延遲到半夜才跑），代表今天這期根本還沒開獎，
+# 這時要看的是「上一期」：上一期已經抓過，就幾秒內結束，等下一次觸發；
+# 不會再傻傻搜尋一個還沒開獎的今天、白跑 1 小時。
+DRAW_OPEN_TIME = {
+    "539": (20, 30),       # 今彩539 約 20:30 開獎
+    "lotto649": (20, 30),  # 大樂透 約 20:30 開獎
+    "marksix": (21, 15),   # 香港六合彩 約 21:30 開獎
+    "fantasy5": (9, 30),   # 加州天天樂 台灣時間約 10:00（夏令）／11:00（冬令）
+}
+
+
+def current_period_date(game_key):
+    """回傳「現在應該抓的那一期」的開獎日期（台灣時間）：
+    已經過了今天的開獎時間 → 今天；還沒到 → 昨天（上一期）。"""
+    now = datetime.datetime.now(TAIWAN_TZ)
+    hm = DRAW_OPEN_TIME.get(game_key)
+    if hm and (now.hour, now.minute) < hm:
+        return now.date() - datetime.timedelta(days=1)
+    return now.date()
+
+
 def taiwan_now_str():
     """回傳台灣目前的日期時間字串（YYYY-MM-DD HH:MM:SS），不受執行環境
     系統時區影響。GitHub Actions 系統時間預設是 UTC，如果直接用
@@ -1584,7 +1607,7 @@ def get_latest_numbers(conn, game):
     return normalize_numbers(row[0].split())
 
 
-def already_confirmed_today(conn, game):
+def already_confirmed_today(conn, game, date_obj=None):
     """檢查該遊戲「今天這一期」是否已經有確認成功的紀錄，避免重複抓取。
 
     2026-09-01 修正：原本是用「存入時間 checked_at 的日期 = 今天」來判斷，
@@ -1595,7 +1618,7 @@ def already_confirmed_today(conn, game):
     改成用「開獎日期 draw_date = 今天」判斷，才是真正的「今天這一期抓過
     了沒」。draw_date 自 2026-08-28 起統一存 YYYY-MM-DD，用 substr 取前 10
     碼是為了相容更早以前存成 "2026-08-25T00:00:00" 這種格式的舊資料。"""
-    today = taiwan_today().strftime("%Y-%m-%d")
+    today = (date_obj or taiwan_today()).strftime("%Y-%m-%d")
     row = conn.execute(
         """
         SELECT id, numbers, special_number, checked_at, draw_date FROM draws
@@ -1622,11 +1645,19 @@ def run_until_confirmed(game_key):
     cfg = GAME_CONFIG[game_key]
     conn = init_db()
 
-    existing = already_confirmed_today(conn, cfg["name"])
+    # 2026-10-17：看「現在應該抓的那一期」（還沒到今天開獎時間就看上一期），
+    # 那一期已確認 → 不再抓，等下一次觸發（隔天的開始訊號）
+    period_date = current_period_date(game_key)
+    existing = already_confirmed_today(conn, cfg["name"], period_date)
     if existing:
         _, existing_numbers, existing_special, existing_checked_at, existing_draw_date = existing
-        log(f"{cfg['name']} 今天已經抓取並確認過（號碼：{existing_numbers}，時間：{existing_checked_at}），"
-            f"不再重複抓取，明天會自動再開始新一輪")
+        if period_date == taiwan_today():
+            log(f"{cfg['name']} 今天這期已經抓取並確認過（號碼：{existing_numbers}，時間：{existing_checked_at}），"
+                f"不再重複抓取，等明天的開始訊號")
+        else:
+            oh, om = DRAW_OPEN_TIME[game_key]
+            log(f"{cfg['name']} 今天這期還沒開獎（約 {oh:02d}:{om:02d} 後才開），上一期 {period_date} 已確認過"
+                f"（號碼：{existing_numbers}），不再重複抓取，等下一次開始訊號")
         # 2026-08-31 修正：這裡的 date/weekday 改用實際存的 draw_date（可能是
         # 補抓昨天那期），不要一律顯示 taiwan_today()，否則會跟資料本身的
         # 日期對不起來。draw_date 解析失敗（例如舊資料格式）時才退回今天。
@@ -1641,6 +1672,29 @@ def run_until_confirmed(game_key):
         )
         conn.close()
         return True
+
+    # 2026-10-17：還沒到今天開獎時間、上一期又沒紀錄（多半是上一天本來就沒開獎，
+    # 例如六合彩、大樂透的非開獎日）→ 只補試 1 次就結束，不長時間重試，等下一次開始訊號
+    if period_date != taiwan_today():
+        log(f"{cfg['name']} 今天這期還沒開獎，上一期 {period_date} 沒有紀錄，只補試 1 次")
+        result = try_cross_check(game_key, conn)
+        if result:
+            period, draw_date, numbers, special, sources = result
+            save_confirmed(conn, cfg["name"], period, draw_date, numbers, special, sources)
+            result_date_obj = normalize_draw_date(draw_date) or period_date
+            update_status(
+                game_key,
+                fetching=False,
+                date=result_date_obj.strftime("%Y-%m-%d"),
+                weekday=weekday_zh_for_date(result_date_obj),
+                numbers=list(numbers),
+                special=special,
+            )
+            conn.close()
+            return True
+        log(f"{cfg['name']} 上一期沒有資料（可能本來就沒開獎），結束，等下一次開始訊號")
+        conn.close()
+        return False
 
     update_status(game_key, fetching=True)
 
