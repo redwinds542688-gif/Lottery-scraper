@@ -132,9 +132,9 @@
       "last_success_date": null
     },
     "lottery.hk": {
-      "first_fail_date": "2026-10-17",
+      "first_fail_date": null,
       "disabled": false,
-      "last_success_date": "2026-10-17"
+      "last_success_date": "2026-10-18"
     },
     "marksixlotterynumbers.hk": {
       "first_fail_date": "2026-08-26",
@@ -157,7 +157,7 @@
       "last_success_date": null
     },
     "9800.com.tw": {
-      "first_fail_date": null,
+      "first_fail_date": "2026-10-18",
       "disabled": false,
       "last_success_date": "2026-10-17"
     },
